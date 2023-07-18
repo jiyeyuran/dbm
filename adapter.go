@@ -1,9 +1,6 @@
 package dbm
 
-import (
-	"context"
-)
-
 type Adapter interface {
-	SchemaApply(ctx context.Context, migration IMigration) error
+	Build(migration interface{}) string
+	MapError(error) error
 }

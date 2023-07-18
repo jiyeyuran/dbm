@@ -24,17 +24,17 @@ func (s SchemaOp) String() string {
 }
 
 // Migration definition.
-type IMigration interface {
+type Migratable interface {
 	internalMigration()
 	description() string
 }
 
 // Schema builder.
 type Schema struct {
-	Migrations []IMigration
+	Migrations []Migratable
 }
 
-func (s *Schema) add(migration IMigration) {
+func (s *Schema) add(migration Migratable) {
 	s.Migrations = append(s.Migrations, migration)
 }
 
@@ -141,7 +141,7 @@ func (r Raw) internalMigration()       {}
 func (r Raw) internalTableDefinition() {}
 
 // Do used internally for schema migration.
-type Do func(context.Context, Adapter) error
+type Do func(context.Context, Database) error
 
 func (d Do) description() string {
 	return "run go code"

@@ -10,6 +10,13 @@ import (
 // DefaultTimeLayout default time layout.
 const DefaultTimeLayout = "2006-01-02 15:04:05"
 
+// TimeLayoutWithZone the time layout with offset.
+const TimeLayoutWithOffset = "2006-01-02 15:04:05.999999999-07:00"
+
+func FormatTime(t time.Time, layout string) string {
+	return t.Truncate(time.Microsecond).Format(layout)
+}
+
 func DropKeyMapper(keyType dbm.KeyType) string {
 	return "CONSTRAINT"
 }

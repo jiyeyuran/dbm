@@ -6,22 +6,7 @@ import (
 
 	"github.com/jiyeuran/dbm"
 	"github.com/jiyeuran/dbm/adapter/sql"
-	"github.com/jiyeuran/dbm/adapter/sql/builder"
 )
-
-var SQLite3 = func() dbm.Adapter {
-	var (
-		sqlite3          = sqlite3{}
-		ddlBufferFactory = builder.BufferFactory{InlineValues: true, BoolTrueValue: "1", BoolFalseValue: "0", Quoter: builder.Quote{IDPrefix: "\"", IDSuffix: "\"", IDSuffixEscapeChar: "\"", ValueQuote: "'", ValueQuoteEscapeChar: "'"}}
-		tableBuilder     = builder.Table{BufferFactory: ddlBufferFactory, ColumnMapper: sqlite3.columnMapper, DefinitionFilter: sqlite3.definitionFilter}
-		indexBuilder     = builder.Index{BufferFactory: ddlBufferFactory}
-	)
-	return &sql.SQL{
-		TableBuilder: tableBuilder,
-		IndexBuilder: indexBuilder,
-		ErrorMapper:  sqlite3.errorMapper,
-	}
-}()
 
 type sqlite3 struct{}
 

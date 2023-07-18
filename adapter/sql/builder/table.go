@@ -254,7 +254,7 @@ func (t Table) definitions(table dbm.Table) []dbm.TableDefinition {
 		if t.DefinitionFilter(table, def) {
 			result = append(result, def)
 		} else {
-			log.Printf("[REL] An unsupported table definition has been excluded: %T", def)
+			log.Printf("[DBM] An unsupported table definition has been excluded: %T", def)
 		}
 	}
 

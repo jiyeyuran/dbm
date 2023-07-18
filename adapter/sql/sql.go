@@ -1,9 +1,6 @@
 package sql
 
 import (
-	"context"
-	"database/sql"
-
 	"github.com/jiyeuran/dbm"
 )
 
@@ -11,28 +8,24 @@ import (
 type ErrorMapper func(error) error
 
 type SQL struct {
-	*sql.DB
 	TableBuilder TableBuilder
 	IndexBuilder IndexBuilder
 	ErrorMapper  ErrorMapper
 }
 
-// SchemaApply performs migration to database.
-func (s SQL) SchemaApply(ctx context.Context, migration dbm.IMigration) error {
-	var statement string
-
+func (s SQL) Build(migration interface{}) string {
 	switch v := migration.(type) {
 	case dbm.Table:
-		statement = s.TableBuilder.Build(v)
+		return s.TableBuilder.Build(v)
 	case dbm.Index:
-		statement = s.IndexBuilder.Build(v)
+		return s.IndexBuilder.Build(v)
 	case dbm.Raw:
-		statement = string(v)
+		return string(v)
 	}
 
-	_, err := s.ExecContext(ctx, statement)
-	if err != nil {
-		return s.ErrorMapper(err)
-	}
-	return nil
+	return ""
+}
+
+func (s SQL) MapError(e error) error {
+	return s.ErrorMapper(e)
 }

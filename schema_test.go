@@ -222,7 +222,7 @@ func TestDo(t *testing.T) {
 		schema Schema
 	)
 
-	schema.Do(func(ctx context.Context, adapter Adapter) error { return nil })
+	schema.Do(func(ctx context.Context, db Database) error { return nil })
 	assert.NotNil(t, schema.Migrations[0])
 }
 

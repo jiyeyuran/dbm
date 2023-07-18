@@ -75,7 +75,7 @@ func (m *Migration) sync(ctx context.Context) {
 	)
 
 	if !m.versionTableExists {
-		check(m.adapter.SchemaApply(ctx, m.buildVersionTableDefinition()))
+		check(m.run(ctx, m.db, m.buildVersionTableDefinition()))
 		m.versionTableExists = true
 	}
 	sqlstr := "SELECT id, version, created_at, updated_at FROM " + versionTable + " ORDER BY version"
@@ -115,13 +115,15 @@ func (m *Migration) Migrate(ctx context.Context) {
 		if v.applied {
 			continue
 		}
+		db, commit := m.getDB(ctx)
 
-		sqlstr := fmt.Sprintf("INSERT INTO %s(version, created_at, updated_at) VALUES (%d, %q, %q)",
-			versionTable, v.Version, v.CreatedAt, v.UpdatedAt)
-		_, err := m.db.ExecContext(ctx, sqlstr)
+		now := time.Now().Truncate(time.Microsecond).Format("2006-01-02 15:04:05.999999999-07:00")
+		sqlstr := fmt.Sprintf("INSERT INTO %s(version) VALUES (%d, %q, %q)",
+			versionTable, v.Version, now, now)
+		_, err := db.ExecContext(ctx, sqlstr)
 		check(err)
-
-		m.run(ctx, v.up.Migrations)
+		check(m.run(ctx, db, v.up.Migrations...))
+		check(commit())
 	}
 }
 
@@ -134,26 +136,42 @@ func (m *Migration) Rollback(ctx context.Context) {
 		if !v.applied {
 			continue
 		}
+		db, commit := m.getDB(ctx)
 
 		sqlstr := fmt.Sprintf("DELETE FROM %s WHERE version=%d", versionTable, v.Version)
-		_, err := m.db.ExecContext(ctx, sqlstr)
+		_, err := db.ExecContext(ctx, sqlstr)
 		check(err)
 
-		m.run(ctx, v.down.Migrations)
+		check(m.run(ctx, db, v.down.Migrations...))
+		check(commit())
 
 		// only rollback one version.
 		return
 	}
 }
 
-func (m *Migration) run(ctx context.Context, migrations []IMigration) {
+func (m *Migration) run(ctx context.Context, db Database, migrations ...Migratable) error {
 	for _, migration := range migrations {
 		if fn, ok := migration.(Do); ok {
-			check(fn(ctx, m.adapter))
+			return fn(ctx, db)
 		} else {
-			check(m.adapter.SchemaApply(ctx, migration))
+			_, err := db.ExecContext(ctx, m.adapter.Build(migration))
+			return m.adapter.MapError(err)
 		}
 	}
+
+	return nil
+}
+
+func (m *Migration) getDB(ctx context.Context) (Database, func() error) {
+	if t, ok := m.db.(Transaction); ok {
+		tx, err := t.BeginTx(ctx, nil)
+		check(err)
+
+		return tx, tx.Commit
+	}
+
+	return m.db, func() error { return nil }
 }
 
 // New migration manager.
@@ -162,24 +180,6 @@ func New(adapter Adapter, db Database) Migration {
 		db:      db,
 		adapter: adapter,
 	}
-}
-
-// New migration manager by driver.
-func NewByDriver(driver string, db Database) Migration {
-	var adapter Adapter
-
-	switch driver {
-	case "mysql":
-
-	case "postgres":
-
-	case "sqlserver":
-
-	case "sqlite", "sqlite3":
-
-	}
-
-	return New(adapter, db)
 }
 
 func check(err error) {
