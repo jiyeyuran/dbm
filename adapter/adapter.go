@@ -1,8 +1,8 @@
 package adapter
 
 import (
-	"github.com/jiyeuran/dbm/adapter/sql"
-	"github.com/jiyeuran/dbm/adapter/sql/builder"
+	"github.com/jiyeyuran/dbm/adapter/sql"
+	"github.com/jiyeyuran/dbm/adapter/sql/builder"
 )
 
 var SQLite3 = func() *sql.SQL {

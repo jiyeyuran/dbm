@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/jiyeuran/dbm"
+	"github.com/jiyeyuran/dbm"
 )
 
 type ColumnMapper func(*dbm.Column) (string, int, int)

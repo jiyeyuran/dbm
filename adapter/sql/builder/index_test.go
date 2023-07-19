@@ -3,7 +3,7 @@ package builder
 import (
 	"testing"
 
-	"github.com/jiyeuran/dbm"
+	"github.com/jiyeyuran/dbm"
 	"github.com/stretchr/testify/assert"
 )
 

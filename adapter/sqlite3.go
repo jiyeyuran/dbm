@@ -4,8 +4,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/jiyeuran/dbm"
-	"github.com/jiyeuran/dbm/adapter/sql"
+	"github.com/jiyeyuran/dbm"
+	"github.com/jiyeyuran/dbm/adapter/sql"
 )
 
 type sqlite3 struct{}

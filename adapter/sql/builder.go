@@ -1,6 +1,6 @@
 package sql
 
-import "github.com/jiyeuran/dbm"
+import "github.com/jiyeyuran/dbm"
 
 type TableBuilder interface {
 	Build(table dbm.Table) string

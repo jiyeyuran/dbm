@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jiyeuran/dbm"
+	"github.com/jiyeyuran/dbm"
 )
 
 // DefaultTimeLayout default time layout.

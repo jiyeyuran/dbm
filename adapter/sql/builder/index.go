@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"github.com/jiyeuran/dbm"
+	"github.com/jiyeyuran/dbm"
 )
 
 // Index builder.

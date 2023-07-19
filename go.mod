@@ -1,4 +1,4 @@
-module github.com/jiyeuran/dbm
+module github.com/jiyeyuran/dbm
 
 go 1.20
 
