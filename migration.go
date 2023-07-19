@@ -8,6 +8,7 @@ import (
 )
 
 const versionTable = "dbm_schema_versions"
+const timeLayout = "2006-01-02 15:04:05.999999999-07:00"
 
 type version struct {
 	ID        int
@@ -117,8 +118,8 @@ func (m *Migration) Migrate(ctx context.Context) {
 		}
 		db, commit := m.getDB(ctx)
 
-		now := time.Now().Truncate(time.Microsecond).Format("2006-01-02 15:04:05.999999999-07:00")
-		sqlstr := fmt.Sprintf("INSERT INTO %s(version) VALUES (%d, %q, %q)",
+		now := time.Now().Truncate(time.Microsecond).Format(timeLayout)
+		sqlstr := fmt.Sprintf("INSERT INTO %s(version, created_at, updated_at) VALUES (%d, %q, %q)",
 			versionTable, v.Version, now, now)
 		_, err := db.ExecContext(ctx, sqlstr)
 		check(err)
@@ -153,10 +154,13 @@ func (m *Migration) Rollback(ctx context.Context) {
 func (m *Migration) run(ctx context.Context, db Database, migrations ...Migratable) error {
 	for _, migration := range migrations {
 		if fn, ok := migration.(Do); ok {
-			return fn(ctx, db)
+			if err := fn(ctx, db); err != nil {
+				return err
+			}
 		} else {
-			_, err := db.ExecContext(ctx, m.adapter.Build(migration))
-			return m.adapter.MapError(err)
+			if _, err := db.ExecContext(ctx, m.adapter.Build(migration)); err != nil {
+				return m.adapter.MapError(err)
+			}
 		}
 	}
 
