@@ -7,8 +7,10 @@ import (
 	"time"
 )
 
-const versionTable = "dbm_schema_versions"
-const timeLayout = "2006-01-02 15:04:05.999999999-07:00"
+const (
+	versionTable = "dbm_schema_versions"
+	timeLayout   = "2006-01-02 15:04:05-07:00"
+)
 
 type version struct {
 	ID        int
