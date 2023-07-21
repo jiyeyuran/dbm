@@ -71,25 +71,30 @@ func (m Migration) buildVersionTableDefinition() Table {
 	return schema.Migrations[0].(Table)
 }
 
-func (m *Migration) sync(ctx context.Context) {
+func (m *Migration) sync(ctx context.Context) error {
 	var (
 		versions versions
 		vi       int
 	)
 
 	if !m.versionTableExists {
-		check(m.run(ctx, m.db, m.buildVersionTableDefinition()))
+		if err := m.run(ctx, m.buildVersionTableDefinition()); err != nil {
+			return err
+		}
 		m.versionTableExists = true
 	}
 	sqlstr := "SELECT id, version, created_at, updated_at FROM " + versionTable + " ORDER BY version"
 	rows, err := m.db.QueryContext(ctx, sqlstr)
-	check(err)
+	if err != nil {
+		return err
+	}
 	defer rows.Close()
 
 	for rows.Next() {
 		ver := version{}
-		err = rows.Scan(&ver.ID, &ver.Version, &ver.CreatedAt, &ver.UpdatedAt)
-		check(err)
+		if err = rows.Scan(&ver.ID, &ver.Version, &ver.CreatedAt, &ver.UpdatedAt); err != nil {
+			return err
+		}
 		versions = append(versions, ver)
 	}
 
@@ -106,61 +111,64 @@ func (m *Migration) sync(ctx context.Context) {
 	}
 
 	if vi != len(versions) {
-		panic(fmt.Sprint("dbm: missing local migration: ", versions[vi].Version))
+		return fmt.Errorf("dbm: missing local migration: %d", versions[vi].Version)
 	}
+	return nil
 }
 
 // Migrate to the latest schema version.
-func (m *Migration) Migrate(ctx context.Context) {
-	m.sync(ctx)
+func (m *Migration) Migrate(ctx context.Context) error {
+	if err := m.sync(ctx); err != nil {
+		return err
+	}
 
 	for _, v := range m.versions {
 		if v.applied {
 			continue
 		}
-		db, commit := m.getDB(ctx)
-
 		now := time.Now().Truncate(time.Microsecond).Format(timeLayout)
 		sqlstr := fmt.Sprintf("INSERT INTO %s(version, created_at, updated_at) VALUES (%d, %q, %q)",
 			versionTable, v.Version, now, now)
-		_, err := db.ExecContext(ctx, sqlstr)
-		check(err)
-		check(m.run(ctx, db, v.up.Migrations...))
-		check(commit())
+		if _, err := m.db.ExecContext(ctx, sqlstr); err != nil {
+			return err
+		}
+		if err := m.run(ctx, v.up.Migrations...); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Rollback migration 1 step.
-func (m *Migration) Rollback(ctx context.Context) {
-	m.sync(ctx)
+func (m *Migration) Rollback(ctx context.Context) error {
+	if err := m.sync(ctx); err != nil {
+		return err
+	}
 
 	for i := range m.versions {
 		v := m.versions[len(m.versions)-i-1]
 		if !v.applied {
 			continue
 		}
-		db, commit := m.getDB(ctx)
-
 		sqlstr := fmt.Sprintf("DELETE FROM %s WHERE version=%d", versionTable, v.Version)
-		_, err := db.ExecContext(ctx, sqlstr)
-		check(err)
-
-		check(m.run(ctx, db, v.down.Migrations...))
-		check(commit())
-
+		if _, err := m.db.ExecContext(ctx, sqlstr); err != nil {
+			return err
+		}
+		err := m.run(ctx, v.down.Migrations...)
 		// only rollback one version.
-		return
+		return err
 	}
+	return nil
 }
 
-func (m *Migration) run(ctx context.Context, db Database, migrations ...Migratable) error {
+func (m *Migration) run(ctx context.Context, migrations ...Migratable) error {
 	for _, migration := range migrations {
 		if fn, ok := migration.(Do); ok {
-			if err := fn(ctx, db); err != nil {
+			if err := fn(ctx, m.db); err != nil {
 				return err
 			}
 		} else {
-			if _, err := db.ExecContext(ctx, m.adapter.Build(migration)); err != nil {
+			if _, err := m.db.ExecContext(ctx, m.adapter.Build(migration)); err != nil {
 				if v, ok := m.adapter.(interface{ WrapError(error) error }); ok {
 					return v.WrapError(err)
 				}
@@ -168,19 +176,7 @@ func (m *Migration) run(ctx context.Context, db Database, migrations ...Migratab
 			}
 		}
 	}
-
 	return nil
-}
-
-func (m *Migration) getDB(ctx context.Context) (Database, func() error) {
-	if t, ok := m.db.(Transaction); ok {
-		tx, err := t.BeginTx(ctx, nil)
-		check(err)
-
-		return tx, tx.Commit
-	}
-
-	return m.db, func() error { return nil }
 }
 
 // New migration manager.
@@ -188,11 +184,5 @@ func New(adapter Adapter, db Database) Migration {
 	return Migration{
 		db:      db,
 		adapter: adapter,
-	}
-}
-
-func check(err error) {
-	if err != nil {
-		panic(err)
 	}
 }
