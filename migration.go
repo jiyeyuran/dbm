@@ -161,7 +161,10 @@ func (m *Migration) run(ctx context.Context, db Database, migrations ...Migratab
 			}
 		} else {
 			if _, err := db.ExecContext(ctx, m.adapter.Build(migration)); err != nil {
-				return m.adapter.MapError(err)
+				if v, ok := m.adapter.(interface{ WrapError(error) error }); ok {
+					return v.WrapError(err)
+				}
+				return err
 			}
 		}
 	}

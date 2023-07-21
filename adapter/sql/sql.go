@@ -26,6 +26,9 @@ func (s SQL) Build(migration interface{}) string {
 	return ""
 }
 
-func (s SQL) MapError(e error) error {
-	return s.ErrorMapper(e)
+func (s SQL) WrapError(err error) error {
+	if s.ErrorMapper == nil || err == nil {
+		return err
+	}
+	return s.ErrorMapper(err)
 }
