@@ -47,6 +47,7 @@ type Migration struct {
 	adapter            Adapter
 	versions           versions
 	versionTableExists bool
+	panicOnError       bool
 }
 
 // Register a migration.
@@ -86,14 +87,14 @@ func (m *Migration) sync(ctx context.Context) error {
 	sqlstr := "SELECT id, version, created_at, updated_at FROM " + versionTable + " ORDER BY version"
 	rows, err := m.db.QueryContext(ctx, sqlstr)
 	if err != nil {
-		return err
+		return m.check(err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		ver := version{}
 		if err = rows.Scan(&ver.ID, &ver.Version, &ver.CreatedAt, &ver.UpdatedAt); err != nil {
-			return err
+			return m.check(fmt.Errorf("sync row scan: %w", err))
 		}
 		versions = append(versions, ver)
 	}
@@ -111,9 +112,15 @@ func (m *Migration) sync(ctx context.Context) error {
 	}
 
 	if vi != len(versions) {
-		return fmt.Errorf("dbm: missing local migration: %d", versions[vi].Version)
+		return m.check(fmt.Errorf("dbm: missing local migration: %d", versions[vi].Version))
 	}
 	return nil
+}
+
+func (m *Migration) MustMigrate(ctx context.Context) {
+	m.panicOnError = true
+	m.check(m.Migrate(ctx))
+	m.panicOnError = false
 }
 
 // Migrate to the latest schema version.
@@ -130,7 +137,7 @@ func (m *Migration) Migrate(ctx context.Context) error {
 		sqlstr := fmt.Sprintf("INSERT INTO %s(version, created_at, updated_at) VALUES (%d, %q, %q)",
 			versionTable, v.Version, now, now)
 		if _, err := m.db.ExecContext(ctx, sqlstr); err != nil {
-			return err
+			return m.check(err)
 		}
 		if err := m.run(ctx, v.up.Migrations...); err != nil {
 			return err
@@ -152,11 +159,10 @@ func (m *Migration) Rollback(ctx context.Context) error {
 		}
 		sqlstr := fmt.Sprintf("DELETE FROM %s WHERE version=%d", versionTable, v.Version)
 		if _, err := m.db.ExecContext(ctx, sqlstr); err != nil {
-			return err
+			return m.check(err)
 		}
-		err := m.run(ctx, v.down.Migrations...)
 		// only rollback one version.
-		return err
+		return m.run(ctx, v.down.Migrations...)
 	}
 	return nil
 }
@@ -165,18 +171,25 @@ func (m *Migration) run(ctx context.Context, migrations ...Migratable) error {
 	for _, migration := range migrations {
 		if fn, ok := migration.(Do); ok {
 			if err := fn(ctx, m.db); err != nil {
-				return err
+				return m.check(err)
 			}
 		} else {
 			if _, err := m.db.ExecContext(ctx, m.adapter.Build(migration)); err != nil {
 				if v, ok := m.adapter.(interface{ WrapError(error) error }); ok {
-					return v.WrapError(err)
+					err = v.WrapError(err)
 				}
-				return err
+				return m.check(err)
 			}
 		}
 	}
 	return nil
+}
+
+func (m *Migration) check(err error) error {
+	if m.panicOnError && err != nil {
+		panic(err)
+	}
+	return err
 }
 
 // New migration manager.
