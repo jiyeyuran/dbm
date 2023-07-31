@@ -48,7 +48,7 @@ var MSSQL = func() *sql.SQL {
 	}
 }()
 
-var Postgres = func() *sql.SQL {
+var PostgresSQL = func() *sql.SQL {
 	var (
 		postgres         = postgres{}
 		ddlBufferFactory = builder.BufferFactory{InlineValues: true, BoolTrueValue: "true", BoolFalseValue: "false", Quoter: postgres, ValueConverter: postgres}
@@ -60,5 +60,20 @@ var Postgres = func() *sql.SQL {
 		TableBuilder: tableBuilder,
 		IndexBuilder: indexBuilder,
 		ErrorMapper:  postgres.errorMapper,
+	}
+}()
+
+func FindDriver(driver string) *sql.SQL {
+	switch driver {
+	case "mysql":
+		return MYSQL
+	case "postgres", "pgx":
+		return PostgresSQL
+	case "sqlite3", "sqlite":
+		return SQLite3
+	case "mssql":
+		return MSSQL
+	default:
+		return nil
 	}
 }
