@@ -63,7 +63,7 @@ var PostgresSQL = func() *sql.SQL {
 	}
 }()
 
-func FindDriver(driver string) *sql.SQL {
+func New(driver string) *sql.SQL {
 	switch driver {
 	case "mysql":
 		return MYSQL
